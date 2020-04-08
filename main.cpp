@@ -21,6 +21,8 @@ int rollTheDice(int valmin, int valmax)
 
 class Entity : public sf::RectangleShape
 {
+    const float SPEED = 50.f;
+
 public:
     Entity(const sf::Vector2f& size, const sf::Vector2f& position);
 
@@ -33,12 +35,29 @@ public:
             boundary.top + (boundary.height/2.f)
         };
     }
+
+    void move(float dt)
+    {
+        const auto pos = getPosition();
+        const float width = getGlobalBounds().width;
+        const float height = getGlobalBounds().height;
+        if(pos.x <= 0.f) m_mouvement.x *= -1.f;
+        if(pos.x >= (1600.f - width)) m_mouvement.x *= -1.f;
+        if(pos.y <= 0.f) m_mouvement.y *= -1.f;
+        if(pos.y >= (900.f - height)) m_mouvement.y *= -1.f;
+        sf::RectangleShape::move(m_mouvement.x * dt * SPEED, m_mouvement.y * dt * SPEED);
+    }
+
+private:
+    sf::Vector2f m_mouvement;
 };
 
 Entity::Entity(const sf::Vector2f& size, const sf::Vector2f& position):
     sf::RectangleShape{size}
 {
     setPosition(position);
+    m_mouvement.x = rollTheDice(-10, 10);
+    m_mouvement.y = rollTheDice(-10, 10);
 }
 
 /*
@@ -176,6 +195,17 @@ void createEntity(std::vector<Entity>& entities, const sf::RenderWindow& window)
     entities.emplace_back(e);
 }
 
+void createEntities(std::vector<Entity>& entities, const unsigned int totalEntities)
+{
+    for(unsigned int i = 0; i < totalEntities; i++){
+        float x = rollTheDice(50, 750);
+        float y = rollTheDice(50, 300);
+        Entity e{{8.f, 8.f}, {x, y}};
+        e.setFillColor(sf::Color::Blue);
+        entities.emplace_back(e);
+    }
+}
+
 /*
 ====================================================================
             MAIN
@@ -187,13 +217,20 @@ int main()
     const unsigned int WINDOW_H = 900;
 
     sf::RenderWindow window{{WINDOW_W, WINDOW_H}, "Quadtree 2D Collision"};
+
     std::vector<Entity> entities{};
+    createEntities(entities, 50);
+
     std::vector<Entity> entitiesInRange{};
-    bool mousePressed = false;
-    sf::RectangleShape mouseRangeRect{{300.f, 150.f}};
+
+    sf::RectangleShape mouseRangeRect{{WINDOW_W / 4.f, WINDOW_H / 4.f}};
     mouseRangeRect.setFillColor(sf::Color::Transparent);
     mouseRangeRect.setOutlineThickness(2);
     mouseRangeRect.setOutlineColor(sf::Color::Green);
+
+    bool mousePressed = false;
+    sf::Clock clock{};
+    sf::Time dt{};
 
     while(window.isOpen())
     {
@@ -229,11 +266,16 @@ int main()
         }
 
         // UPDATE
+        dt = clock.restart();
+        for(auto&& e : entities){
+            e.move(dt.asSeconds());
+        }
+
         const sf::Vector2i mousePos = sf::Mouse::getPosition(window);
         const sf::FloatRect rangeBounds = mouseRangeRect.getGlobalBounds();
         mouseRangeRect.setPosition(mousePos.x - (rangeBounds.width/2.f), mousePos.y - (rangeBounds.height/2.f));
 
-        if(mousePressed) createEntity(entities, window);
+        //if(mousePressed) createEntity(entities, window);
 
         Quadtree qRoot{sf::FloatRect{0.f, 0.f, WINDOW_W, WINDOW_H}};
         for(auto&& e : entities){
