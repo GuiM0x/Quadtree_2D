@@ -285,7 +285,7 @@ int main()
             qRoot.insert(&e);
         }
 
-        // Collisions test in range
+        // Collisions test foreach entities
         for(unsigned int i = 0; i < entities.size(); i++){
             const sf::FloatRect rangeBounds{{entities[i].getCenter().x - 12.f, entities[i].getCenter().y - 12.f}, {24.f, 24.f}};
             entitiesInRange.clear();
