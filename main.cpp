@@ -59,6 +59,7 @@ public:
 
 public:
     bool insert(const Entity* entity);
+    void queryEntities(std::vector<Entity>& entitiesInrRange, const sf::FloatRect& range);
 
 private:
     void subdivide();
@@ -106,6 +107,25 @@ bool Quadtree::insert(const Entity* entity)
     if(m_southeast->insert(entity)) return true;
 
     return false;
+}
+
+void Quadtree::queryEntities(std::vector<Entity>& entitiesInRange, const sf::FloatRect& range)
+{
+    if(!m_boundary.intersects(range)) return;
+
+    for(auto&& e : m_entities){
+        if(range.contains(e->getCenter())){
+            entitiesInRange.emplace_back(*e);
+            entitiesInRange.back().setFillColor(sf::Color::Red);
+        }
+    }
+
+    if(!m_divided) return;
+
+    m_northwest->queryEntities(entitiesInRange, range);
+    m_northeast->queryEntities(entitiesInRange, range);
+    m_southwest->queryEntities(entitiesInRange, range);
+    m_southeast->queryEntities(entitiesInRange, range);
 }
 
 void Quadtree::subdivide()
@@ -168,7 +188,12 @@ int main()
 
     sf::RenderWindow window{{WINDOW_W, WINDOW_H}, "Quadtree 2D Collision"};
     std::vector<Entity> entities{};
+    std::vector<Entity> entitiesInRange{};
     bool mousePressed = false;
+    sf::RectangleShape mouseRangeRect{{300.f, 150.f}};
+    mouseRangeRect.setFillColor(sf::Color::Transparent);
+    mouseRangeRect.setOutlineThickness(2);
+    mouseRangeRect.setOutlineColor(sf::Color::Green);
 
     while(window.isOpen())
     {
@@ -204,6 +229,10 @@ int main()
         }
 
         // UPDATE
+        const sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+        const sf::FloatRect rangeBounds = mouseRangeRect.getGlobalBounds();
+        mouseRangeRect.setPosition(mousePos.x - (rangeBounds.width/2.f), mousePos.y - (rangeBounds.height/2.f));
+
         if(mousePressed) createEntity(entities, window);
 
         Quadtree qRoot{sf::FloatRect{0.f, 0.f, WINDOW_W, WINDOW_H}};
@@ -211,10 +240,17 @@ int main()
             qRoot.insert(&e);
         }
 
-        //DRAW
+        entitiesInRange.clear();
+        qRoot.queryEntities(entitiesInRange, rangeBounds);
+
+        // DRAW
         window.clear();
         window.draw(qRoot);
         for(auto&& e : entities){
+            window.draw(e);
+        }
+        window.draw(mouseRangeRect);
+        for(auto&& e : entitiesInRange){
             window.draw(e);
         }
         window.display();
