@@ -167,9 +167,7 @@ int main()
     const unsigned int WINDOW_H = 900;
 
     sf::RenderWindow window{{WINDOW_W, WINDOW_H}, "Quadtree 2D Collision"};
-
     std::vector<Entity> entities{};
-
     bool mousePressed = false;
 
     while(window.isOpen())
@@ -179,7 +177,9 @@ int main()
         while(window.pollEvent(event))
         {
             if(event.type == sf::Event::KeyPressed){
-
+                if(event.key.code == sf::Keyboard::R){
+                    entities.clear();
+                }
             }
 
             if(event.type == sf::Event::KeyReleased){
