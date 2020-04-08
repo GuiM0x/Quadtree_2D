@@ -21,13 +21,13 @@ int rollTheDice(int valmin, int valmax)
 
 class Entity : public sf::RectangleShape
 {
-    const float SPEED = 50.f;
+    const float SPEED = 10.f;
 
 public:
     Entity(const sf::Vector2f& size, const sf::Vector2f& position);
 
 public:
-    sf::Vector2f getCenter() const
+    inline sf::Vector2f getCenter() const
     {
         const sf::FloatRect boundary = getGlobalBounds();
         return sf::Vector2f{
@@ -36,7 +36,7 @@ public:
         };
     }
 
-    void move(float dt)
+    inline void move(float dt)
     {
         const auto pos = getPosition();
         const float width = getGlobalBounds().width;
@@ -46,6 +46,12 @@ public:
         if(pos.y <= 0.f) m_mouvement.y *= -1.f;
         if(pos.y >= (900.f - height)) m_mouvement.y *= -1.f;
         sf::RectangleShape::move(m_mouvement.x * dt * SPEED, m_mouvement.y * dt * SPEED);
+    }
+
+    inline void changeDir()
+    {
+        m_mouvement.x = rollTheDice(-10, 10);
+        m_mouvement.y = rollTheDice(-10, 10);
     }
 
 private:
@@ -77,8 +83,8 @@ public:
     Quadtree(const sf::FloatRect& boundary);
 
 public:
-    bool insert(const Entity* entity);
-    void queryEntities(std::vector<Entity>& entitiesInrRange, const sf::FloatRect& range);
+    bool insert(Entity* entity);
+    void queryEntities(std::vector<Entity*>& entitiesInrRange, const sf::FloatRect& range);
 
 private:
     void subdivide();
@@ -86,7 +92,7 @@ private:
 
 private:
     sf::FloatRect m_boundary;
-    std::vector<const Entity*> m_entities;
+    std::vector<Entity*> m_entities;
     bool m_divided = false;
     Quadtree_p m_northwest = nullptr;
     Quadtree_p m_northeast = nullptr;
@@ -101,10 +107,11 @@ Quadtree::Quadtree(const sf::FloatRect& boundary):
     m_rect.setSize({m_boundary.width, m_boundary.height});
     m_rect.setPosition(m_boundary.left, m_boundary.top);
     m_rect.setOutlineThickness(1);
-    m_rect.setOutlineColor(sf::Color::Black);
+    m_rect.setOutlineColor(sf::Color{60, 60, 60});
+    m_rect.setFillColor(sf::Color::Black);
 }
 
-bool Quadtree::insert(const Entity* entity)
+bool Quadtree::insert(Entity* entity)
 {
     const sf::Vector2f center = entity->getCenter();
     if(!m_boundary.contains(center)){
@@ -128,14 +135,13 @@ bool Quadtree::insert(const Entity* entity)
     return false;
 }
 
-void Quadtree::queryEntities(std::vector<Entity>& entitiesInRange, const sf::FloatRect& range)
+void Quadtree::queryEntities(std::vector<Entity*>& entitiesInRange, const sf::FloatRect& range)
 {
     if(!m_boundary.intersects(range)) return;
 
     for(auto&& e : m_entities){
         if(range.contains(e->getCenter())){
-            entitiesInRange.emplace_back(*e);
-            entitiesInRange.back().setFillColor(sf::Color::Red);
+            entitiesInRange.emplace_back(e);
         }
     }
 
@@ -190,7 +196,7 @@ void createEntity(std::vector<Entity>& entities, const sf::RenderWindow& window)
     sf::Vector2i mPos = sf::Mouse::getPosition(window);
     float x = rollTheDice(mPos.x - 32.f, mPos.x + 32.f);
     float y = rollTheDice(mPos.y - 32.f, mPos.y + 32.f);
-    Entity e{{4.f, 4.f}, {x, y}};
+    Entity e{{2.f, 2.f}, {x, y}};
     e.setFillColor(sf::Color::Blue);
     entities.emplace_back(e);
 }
@@ -198,12 +204,19 @@ void createEntity(std::vector<Entity>& entities, const sf::RenderWindow& window)
 void createEntities(std::vector<Entity>& entities, const unsigned int totalEntities)
 {
     for(unsigned int i = 0; i < totalEntities; i++){
-        float x = rollTheDice(50, 750);
-        float y = rollTheDice(50, 300);
+        float x = rollTheDice(50, 1550);
+        float y = rollTheDice(50, 850);
         Entity e{{8.f, 8.f}, {x, y}};
         e.setFillColor(sf::Color::Blue);
         entities.emplace_back(e);
     }
+}
+
+bool isCollide(const Entity* a, const Entity* b)
+{
+    const sf::FloatRect aBounds = a->getGlobalBounds();
+    const sf::FloatRect bBounds = b->getGlobalBounds();
+    return aBounds.intersects(bBounds);
 }
 
 /*
@@ -219,14 +232,9 @@ int main()
     sf::RenderWindow window{{WINDOW_W, WINDOW_H}, "Quadtree 2D Collision"};
 
     std::vector<Entity> entities{};
-    createEntities(entities, 50);
+    createEntities(entities, 1000);
 
-    std::vector<Entity> entitiesInRange{};
-
-    sf::RectangleShape mouseRangeRect{{WINDOW_W / 4.f, WINDOW_H / 4.f}};
-    mouseRangeRect.setFillColor(sf::Color::Transparent);
-    mouseRangeRect.setOutlineThickness(2);
-    mouseRangeRect.setOutlineColor(sf::Color::Green);
+    std::vector<Entity*> entitiesInRange{};
 
     bool mousePressed = false;
     sf::Clock clock{};
@@ -271,28 +279,32 @@ int main()
             e.move(dt.asSeconds());
         }
 
-        const sf::Vector2i mousePos = sf::Mouse::getPosition(window);
-        const sf::FloatRect rangeBounds = mouseRangeRect.getGlobalBounds();
-        mouseRangeRect.setPosition(mousePos.x - (rangeBounds.width/2.f), mousePos.y - (rangeBounds.height/2.f));
-
-        //if(mousePressed) createEntity(entities, window);
-
         Quadtree qRoot{sf::FloatRect{0.f, 0.f, WINDOW_W, WINDOW_H}};
         for(auto&& e : entities){
+            e.setFillColor(sf::Color::Blue);
             qRoot.insert(&e);
         }
 
-        entitiesInRange.clear();
-        qRoot.queryEntities(entitiesInRange, rangeBounds);
+        // Collisions test in range
+        for(unsigned int i = 0; i < entities.size(); i++){
+            const sf::FloatRect rangeBounds{{entities[i].getCenter().x - 12.f, entities[i].getCenter().y - 12.f}, {24.f, 24.f}};
+            entitiesInRange.clear();
+            qRoot.queryEntities(entitiesInRange, rangeBounds);
+            for(unsigned int j = 0; j < entitiesInRange.size(); j++){
+                // Is collide ?
+                if(&entities[i] != entitiesInRange[j]){
+                    if(isCollide(&entities[i], entitiesInRange[j])){
+                        entities[i].changeDir();
+                        entities[i].setFillColor(sf::Color::Cyan);
+                    }
+                }
+            }
+        }
 
         // DRAW
         window.clear();
         window.draw(qRoot);
         for(auto&& e : entities){
-            window.draw(e);
-        }
-        window.draw(mouseRangeRect);
-        for(auto&& e : entitiesInRange){
             window.draw(e);
         }
         window.display();
