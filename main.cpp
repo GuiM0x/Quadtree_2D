@@ -80,15 +80,20 @@ class Quadtree : public sf::Drawable
     const unsigned int NODE_CAPACITY = 5;
 
 public:
+    Quadtree() = delete;
     Quadtree(const sf::FloatRect& boundary);
+    Quadtree(const Quadtree&) = delete;
+    Quadtree(Quadtree&&) = delete;
+    ~Quadtree() = default;
 
 public:
     bool insert(const Entity* entity);
-    void queryEntities(std::vector<const Entity*>& entitiesInrRange, const sf::FloatRect& range);
+    void queryEntities(std::vector<const Entity*>& entitiesInRange, const sf::FloatRect& range);
 
 private:
     void subdivide();
-    virtual void draw(sf::RenderTarget& target, sf::RenderStates states) const;
+    // Override from sf::Drawable
+    virtual void draw(sf::RenderTarget& target, sf::RenderStates states) const final;
 
 private:
     sf::FloatRect m_boundary;
@@ -179,6 +184,7 @@ void Quadtree::subdivide()
     m_divided = true;
 }
 
+// Override from sf::Drawable
 void Quadtree::draw(sf::RenderTarget& target, sf::RenderStates states) const
 {
     target.draw(m_rect);
