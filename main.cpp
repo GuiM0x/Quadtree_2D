@@ -83,8 +83,8 @@ public:
     Quadtree(const sf::FloatRect& boundary);
 
 public:
-    bool insert(Entity* entity);
-    void queryEntities(std::vector<Entity*>& entitiesInrRange, const sf::FloatRect& range);
+    bool insert(const Entity* entity);
+    void queryEntities(std::vector<const Entity*>& entitiesInrRange, const sf::FloatRect& range);
 
 private:
     void subdivide();
@@ -92,7 +92,7 @@ private:
 
 private:
     sf::FloatRect m_boundary;
-    std::vector<Entity*> m_entities;
+    std::vector<const Entity*> m_entities;
     bool m_divided = false;
     Quadtree_p m_northwest = nullptr;
     Quadtree_p m_northeast = nullptr;
@@ -108,10 +108,9 @@ Quadtree::Quadtree(const sf::FloatRect& boundary):
     m_rect.setPosition(m_boundary.left, m_boundary.top);
     m_rect.setOutlineThickness(1);
     m_rect.setOutlineColor(sf::Color{60, 60, 60});
-    m_rect.setFillColor(sf::Color::Black);
 }
 
-bool Quadtree::insert(Entity* entity)
+bool Quadtree::insert(const Entity* entity)
 {
     const sf::Vector2f center = entity->getCenter();
     if(!m_boundary.contains(center)){
@@ -135,7 +134,7 @@ bool Quadtree::insert(Entity* entity)
     return false;
 }
 
-void Quadtree::queryEntities(std::vector<Entity*>& entitiesInRange, const sf::FloatRect& range)
+void Quadtree::queryEntities(std::vector<const Entity*>& entitiesInRange, const sf::FloatRect& range)
 {
     if(!m_boundary.intersects(range)) return;
 
@@ -191,6 +190,12 @@ void Quadtree::draw(sf::RenderTarget& target, sf::RenderStates states) const
     }
 }
 
+/*
+====================================================================
+            HELPERS
+====================================================================
+*/
+
 void createEntity(std::vector<Entity>& entities, const sf::RenderWindow& window)
 {
     sf::Vector2i mPos = sf::Mouse::getPosition(window);
@@ -204,8 +209,8 @@ void createEntity(std::vector<Entity>& entities, const sf::RenderWindow& window)
 void createEntities(std::vector<Entity>& entities, const unsigned int totalEntities)
 {
     for(unsigned int i = 0; i < totalEntities; i++){
-        float x = rollTheDice(50, 1550);
-        float y = rollTheDice(50, 850);
+        float x = rollTheDice(50, 1000);
+        float y = rollTheDice(50, 400);
         Entity e{{8.f, 8.f}, {x, y}};
         e.setFillColor(sf::Color::Blue);
         entities.emplace_back(e);
@@ -231,10 +236,21 @@ int main()
 
     sf::RenderWindow window{{WINDOW_W, WINDOW_H}, "Quadtree 2D Collision"};
 
+    sf::Font font{};
+    font.loadFromFile("arial.ttf");
+    sf::Text fps{"0", font};
+    fps.setCharacterSize(30);
+    fps.setStyle(sf::Text::Bold);
+    fps.setFillColor(sf::Color::Green);
+    fps.setPosition(1600.f - 80.f, 10.f);
+    fps.setOutlineThickness(1);
+    fps.setOutlineColor(sf::Color::Black);
+    float timeSinceFPSUpdate = 0.f;
+
     std::vector<Entity> entities{};
     createEntities(entities, 1000);
 
-    std::vector<Entity*> entitiesInRange{};
+    std::vector<const Entity*> entitiesInRange{};
 
     bool mousePressed = false;
     sf::Clock clock{};
@@ -275,6 +291,13 @@ int main()
 
         // UPDATE
         dt = clock.restart();
+
+        timeSinceFPSUpdate += dt.asMilliseconds();
+        if(timeSinceFPSUpdate > 75.f){
+            timeSinceFPSUpdate = 0.f;
+            fps.setString(std::to_string(static_cast<int>(1.f/dt.asSeconds())));
+        }
+
         for(auto&& e : entities){
             e.move(dt.asSeconds());
         }
@@ -291,11 +314,11 @@ int main()
             entitiesInRange.clear();
             qRoot.queryEntities(entitiesInRange, rangeBounds);
             for(unsigned int j = 0; j < entitiesInRange.size(); j++){
-                // Is collide ?
                 if(&entities[i] != entitiesInRange[j]){
+                    // Is collide ?
                     if(isCollide(&entities[i], entitiesInRange[j])){
                         entities[i].changeDir();
-                        entities[i].setFillColor(sf::Color::Cyan);
+                        entities[i].setFillColor(sf::Color::Red);
                     }
                 }
             }
@@ -307,6 +330,7 @@ int main()
         for(auto&& e : entities){
             window.draw(e);
         }
+        window.draw(fps);
         window.display();
     }
 
