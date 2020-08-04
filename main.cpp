@@ -202,6 +202,26 @@ void Quadtree::draw(sf::RenderTarget& target, sf::RenderStates states) const
 ====================================================================
 */
 
+unsigned int askEntitiesNumber()
+{
+    std::cout << "How much entities you need ?\n";
+    unsigned int entitiesNumber = 0;
+    std::cin >> entitiesNumber;
+    
+    return entitiesNumber;
+}
+
+bool askDetectionMethod()
+{
+    std::cout << "Activate quadtree detection ? (y/n)\n";
+    bool quadtreeDetection = true;
+    char answer = 'y';
+    std::cin >> answer;
+    if(answer == 'n') quadtreeDetection = false;
+    
+    return quadtreeDetection;
+}
+
 void createEntity(std::vector<Entity>& entities, const sf::RenderWindow& window)
 {
     sf::Vector2i mPos = sf::Mouse::getPosition(window);
@@ -237,13 +257,17 @@ bool isCollide(const Entity* a, const Entity* b)
 */
 int main()
 {
+    const unsigned int totalEntities = askEntitiesNumber();
+    const bool quadtreeDetection = askDetectionMethod();
+    
     const unsigned int WINDOW_W = 1600;
     const unsigned int WINDOW_H = 900;
 
     sf::RenderWindow window{{WINDOW_W, WINDOW_H}, "Quadtree 2D Collision"};
 
     sf::Font font{};
-    font.loadFromFile("arial.ttf");
+    if(!font.loadFromFile("arial.ttf")) // Windows
+	font.loadFromFile("FreeMono.ttf"); // Linux
     sf::Text fps{"0", font};
     fps.setCharacterSize(30);
     fps.setStyle(sf::Text::Bold);
@@ -254,7 +278,7 @@ int main()
     float timeSinceFPSUpdate = 0.f;
 
     std::vector<Entity> entities{};
-    createEntities(entities, 1000);
+    createEntities(entities, totalEntities);
 
     std::vector<const Entity*> entitiesInRange{};
 
@@ -308,27 +332,41 @@ int main()
             e.move(dt.asSeconds());
         }
 
+        
         Quadtree qRoot{sf::FloatRect{0.f, 0.f, WINDOW_W, WINDOW_H}};
         for(auto&& e : entities){
             e.setFillColor(sf::Color::Blue);
             qRoot.insert(&e);
         }
-
-        // Collisions test foreach entities
-        for(unsigned int i = 0; i < entities.size(); i++){
-            const sf::FloatRect rangeBounds{{entities[i].getCenter().x - 12.f, entities[i].getCenter().y - 12.f}, {24.f, 24.f}};
-            entitiesInRange.clear();
-            qRoot.queryEntities(entitiesInRange, rangeBounds);
-            for(unsigned int j = 0; j < entitiesInRange.size(); j++){
-                if(&entities[i] != entitiesInRange[j]){
-                    // Is collide ?
-                    if(isCollide(&entities[i], entitiesInRange[j])){
-                        entities[i].changeDir();
-                        entities[i].setFillColor(sf::Color::Red);
+            
+        if(quadtreeDetection){
+            for(unsigned int i = 0; i < entities.size(); i++){
+                const sf::FloatRect rangeBounds{{entities[i].getCenter().x - 12.f, entities[i].getCenter().y - 12.f}, {24.f, 24.f}};
+                entitiesInRange.clear();
+                qRoot.queryEntities(entitiesInRange, rangeBounds);
+                for(unsigned int j = 0; j < entitiesInRange.size(); j++){
+                    if(&entities[i] != entitiesInRange[j]){
+                        // Is collide ?
+                        if(isCollide(&entities[i], entitiesInRange[j])){
+                            entities[i].changeDir();
+                            entities[i].setFillColor(sf::Color::Red);
+                        }
+                    }
+                }
+            }
+        } else {
+            for(unsigned int i = 0; i < entities.size(); i++){
+                for(unsigned int j = 0; j < entities.size(); j++){
+                    if(i != j){
+                        if(isCollide(&entities[i], &entities[j])){
+                            entities[i].changeDir();
+                            entities[i].setFillColor(sf::Color::Red);
+                        }
                     }
                 }
             }
         }
+        
 
         // DRAW
         window.clear();
